@@ -13,10 +13,11 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 const SECRET_KEY = process.env.JWT_SECRET || "rahasia-super-ganteng-banget-jangan-lupa-diganti";
 
+const adminEmail = process.env.ADMIN_EMAIL || "admin@admin.com";
 const USERS = {
-  "admin@admin.com": {
-    username: "admin@admin.com",
-    password: "123456",
+  [adminEmail]: {
+    username: adminEmail,
+    password: process.env.ADMIN_PASSWORD || "123456",
     disabled: false
   }
 };
