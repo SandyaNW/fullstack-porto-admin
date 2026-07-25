@@ -48,11 +48,21 @@ export const ExperienceEdit = () => {
   return (
     <Edit title="Edit Experience" saveButtonProps={{ hidden: true }}>
       <Form form={form} layout="vertical" onFinish={onFinish}>
-        <Form.Item label="Company Name" name="company_name" rules={[{ required: true }]}> <Input /> </Form.Item>
-        <Form.Item label="Role / Position" name="role" rules={[{ required: true }]}> <Input /> </Form.Item>
-        <Form.Item label="Start Year" name="start_year" rules={[{ required: true }]}> <Input /> </Form.Item>
-        <Form.Item label="End Year" name="end_year" rules={[{ required: true }]}> <Input /> </Form.Item>
-        <Form.Item label="Description" name="description"> <Input.TextArea rows={3} /> </Form.Item>
+        <Form.Item label="Company Name" name="company_name" rules={[{ required: true }]}>
+          <Input />
+        </Form.Item>
+        <Form.Item label="Role / Position" name="role" rules={[{ required: true }]}>
+          <Input />
+        </Form.Item>
+        <Form.Item label="Start Year" name="start_year" rules={[{ required: true }]}>
+          <Input />
+        </Form.Item>
+        <Form.Item label="End Year" name="end_year" rules={[{ required: true }]}>
+          <Input />
+        </Form.Item>
+        <Form.Item label="Description" name="description">
+          <Input.TextArea rows={3} />
+        </Form.Item>
         <Button type="primary" htmlType="submit" block size="large">Update Experience</Button>
       </Form>
     </Edit>

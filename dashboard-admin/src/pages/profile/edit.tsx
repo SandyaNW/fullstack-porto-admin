@@ -52,6 +52,19 @@ export const ProfileEdit = () => {
         github_url: data.github_url,
         linkedin_url: data.linkedin_url,
       });
+
+      if (data.resume) {
+        form.setFieldsValue({
+          resume: [
+            {
+              uid: '-1',
+              name: data.resume.split('/').pop() || 'Resume.pdf',
+              status: 'done',
+              url: data.resume.startsWith('http') ? data.resume : `${API_URL}/${data.resume}`,
+            }
+          ]
+        });
+      }
     } catch (error) {
       message.error("Gagal mengambil data profile");
     } finally {
@@ -76,6 +89,14 @@ export const ProfileEdit = () => {
 
       if (values.avatar && typeof values.avatar !== "string" && values.avatar.length > 0) {
         formData.append("avatar", values.avatar[0].originFileObj);
+      }
+
+      if (values.resume && values.resume.length > 0) {
+        if (values.resume[0].originFileObj) {
+          formData.append("resume", values.resume[0].originFileObj);
+        }
+      } else {
+        formData.append("delete_resume", "true");
       }
 
       const { data } = await axiosInstance.patch(`${apiUrl}/profile`, formData, {
@@ -118,7 +139,7 @@ export const ProfileEdit = () => {
           <Image
             width={160}
             height={160}
-            src={`${API_URL}/${profileData.avatar}`}
+            src={profileData.avatar.startsWith('http') ? profileData.avatar : `${API_URL}/${profileData.avatar}`}
             style={{ 
                 borderRadius: "50%", 
                 objectFit: "cover", 
@@ -183,6 +204,14 @@ export const ProfileEdit = () => {
                     LinkedIn
                 </Button>
             )}
+            {profileData?.resume && (
+                <Button 
+                    type="default" shape="round" size="large" icon={<UploadOutlined />} 
+                    onClick={() => window.open(profileData.resume.startsWith('http') ? profileData.resume : `${API_URL}/${profileData.resume}`, '_blank')}
+                >
+                    Download CV
+                </Button>
+            )}
         </Space>
       </div>
     </div>
@@ -236,6 +265,20 @@ export const ProfileEdit = () => {
             <Col span={12}>
                 <Form.Item label="LinkedIn URL" name="linkedin_url">
                     <Input prefix={<LinkedinOutlined />} placeholder="linkedin.com/in/username" />
+                </Form.Item>
+            </Col>
+
+            <Col span={24}>
+                <Form.Item
+                    label="Upload CV / Resume (PDF)"
+                    name="resume"
+                    valuePropName="fileList"
+                    getValueFromEvent={(e: any) => (Array.isArray(e) ? e : e?.fileList)}
+                    getValueProps={(value) => ({ fileList: Array.isArray(value) ? value : [] })}
+                >
+                    <Upload beforeUpload={() => false} maxCount={1} accept=".pdf">
+                        <Button icon={<UploadOutlined />}>Pilih File PDF</Button>
+                    </Upload>
                 </Form.Item>
             </Col>
         </Row>

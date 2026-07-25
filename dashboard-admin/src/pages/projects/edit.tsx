@@ -82,7 +82,7 @@ export const ProjectEdit = () => {
         <Form.Item label="Repo URL" name="repo_url"><Input /></Form.Item>
 
         <Form.Item label="Current Image">
-           {currentImage ? <Image width={200} src={`${apiUrl}/${currentImage}`} /> : <span style={{color:'gray'}}>Tidak ada gambar</span>}
+           {currentImage ? <Image width={200} src={currentImage.startsWith('http') ? currentImage : `${apiUrl}/${currentImage}`} /> : <span style={{color:'gray'}}>Tidak ada gambar</span>}
         </Form.Item>
 
         <Form.Item label="Change Image" name="image" valuePropName="fileList" getValueFromEvent={(e: any) => Array.isArray(e) ? e : e?.fileList}>

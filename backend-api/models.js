@@ -68,6 +68,10 @@ export const Profile = sequelize.define('Profile', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  resume: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   tableName: 'profile',
   timestamps: false,
@@ -186,5 +190,29 @@ export const Contact = sequelize.define('Contact', {
   },
 }, {
   tableName: 'contacts',
+  timestamps: false,
+});
+
+// Skill Model
+export const Skill = sequelize.define('Skill', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  level: {
+    type: DataTypes.STRING, // e.g. "Beginner", "Intermediate", "Advanced", "Expert"
+    allowNull: false,
+  },
+  category: {
+    type: DataTypes.STRING, // e.g. "Frontend", "Backend", "Tools", "Others"
+    allowNull: false,
+  },
+}, {
+  tableName: 'skills',
   timestamps: false,
 });

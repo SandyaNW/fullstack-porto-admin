@@ -20,7 +20,7 @@ export const ProjectList = () => {
           render={(value) => (
             <Image
               width={50}
-              src={value ? `${API_URL}/${value}` : "error"} 
+              src={value ? (value.startsWith('http') ? value : `${API_URL}/${value}`) : "error"} 
               alt="Project"
             />
           )}

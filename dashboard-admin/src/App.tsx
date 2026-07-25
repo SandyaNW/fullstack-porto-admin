@@ -6,6 +6,7 @@ import {
     RocketOutlined,         // Ikon Roket (Experience)
     SafetyCertificateOutlined, // Ikon Sertifikat (Certificates)
     ContactsOutlined,       // Ikon Buku Telepon (Contacts)
+    BuildOutlined,          // Ikon Palu/Peralatan (Skills)
     MessageOutlined         // Ikon Pesan (Messages)
 } from "@ant-design/icons";
 import { 
@@ -43,6 +44,9 @@ import { CertificateEdit } from "./pages/certificates/edit";
 import { ContactList } from "./pages/contacts/list";
 import { ContactCreate } from "./pages/contacts/create";
 import { ContactEdit } from "./pages/contacts/edit";
+import { SkillList } from "./pages/skills/list";
+import { SkillCreate } from "./pages/skills/create";
+import { SkillEdit } from "./pages/skills/edit";
 import { authProvider } from "./authProvider";
 import { Login } from "./pages/auth/login";
 
@@ -126,6 +130,13 @@ function App() {
                   edit: "/contacts/edit/:id",
                   meta: { label: "Contact", icon: <ContactsOutlined /> }
               },
+              {
+                  name: "skills",
+                  list: "/skills",
+                  create: "/skills/create",
+                  edit: "/skills/edit/:id",
+                  meta: { label: "Keahlian (Skills)", icon: <BuildOutlined /> }
+              },
           ]}
         >
           <Routes>
@@ -175,6 +186,12 @@ function App() {
                 <Route index element={<ContactList />} />
                 <Route path="create" element={<ContactCreate />} />
                 <Route path="edit/:id" element={<ContactEdit />} />
+              </Route>
+
+              <Route path="/skills">
+                <Route index element={<SkillList />} />
+                <Route path="create" element={<SkillCreate />} />
+                <Route path="edit/:id" element={<SkillEdit />} />
               </Route>
 
               <Route path="*" element={<ErrorComponent />} />

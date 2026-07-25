@@ -5,8 +5,9 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 import jwt from 'jsonwebtoken';
+import { createClient } from '@supabase/supabase-js';
 import sequelize from './database.js';
-import { Project, Profile, Education, Experience, Certificate, Contact } from './models.js';
+import { Project, Profile, Education, Experience, Certificate, Contact, Skill } from './models.js';
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -20,37 +21,97 @@ const USERS = {
   }
 };
 
-// Ensure static/images directory exists
-fs.mkdirSync('static/images', { recursive: true });
+// Initialize Supabase Client
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
-// Setup Multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'static/images/');
-  },
-  filename: (req, file, cb) => {
-    const prefix = file.fieldname === 'avatar' ? 'avatar-' : '';
-    cb(null, `${prefix}${uuidv4()}-${file.originalname}`);
+if (supabase) {
+  console.log("Supabase Storage integration active.");
+} else {
+  console.log("Supabase Storage credentials missing. Falling back to local file storage.");
+  fs.mkdirSync('static/images', { recursive: true });
+  fs.mkdirSync('static/files', { recursive: true });
+}
+
+// Setup Multer to use memory storage
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Helper to upload file (supports both Supabase & local fallback)
+async function uploadFileToStorage(file) {
+  if (!file) return null;
+
+  const fileExt = file.originalname.split('.').pop();
+  const prefix = file.fieldname === 'avatar' ? 'avatar-' : file.fieldname === 'resume' ? 'resume-' : '';
+  const fileName = `${prefix}${uuidv4()}.${fileExt}`;
+
+  if (supabase) {
+    const { data, error } = await supabase.storage
+      .from('portfolio-assets')
+      .upload(fileName, file.buffer, {
+        contentType: file.mimetype,
+        upsert: true
+      });
+
+    if (error) {
+      throw new Error(`Supabase Storage upload failed: ${error.message}`);
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('portfolio-assets')
+      .getPublicUrl(fileName);
+
+    return publicUrl;
+  } else {
+    const subFolder = file.fieldname === 'resume' ? 'static/files' : 'static/images';
+    fs.mkdirSync(subFolder, { recursive: true });
+    const localPath = `${subFolder}/${fileName}`;
+    fs.writeFileSync(localPath, file.buffer);
+    return localPath;
   }
-});
+}
 
-const upload = multer({ storage });
+// Helper to delete file (supports both Supabase & local fallback)
+async function deleteFileFromStorage(fileUrl) {
+  if (!fileUrl) return;
 
-// Helper to delete old file
-function deleteFile(filePath) {
-  if (filePath && fs.existsSync(filePath)) {
-    try {
-      fs.unlinkSync(filePath);
-    } catch (err) {
-      console.error(`Error deleting file ${filePath}:`, err);
+  if (supabase && fileUrl.startsWith('http') && fileUrl.includes('/storage/v1/object/public/portfolio-assets/')) {
+    const fileName = fileUrl.split('/portfolio-assets/').pop();
+    if (fileName) {
+      const { error } = await supabase.storage
+        .from('portfolio-assets')
+        .remove([fileName]);
+      if (error) {
+        console.error(`Error deleting from Supabase Storage:`, error.message);
+      }
+    }
+  } else {
+    if (fs.existsSync(fileUrl)) {
+      try {
+        fs.unlinkSync(fileUrl);
+      } catch (err) {
+        console.error(`Error deleting local file ${fileUrl}:`, err);
+      }
     }
   }
 }
 
-// 2. Middleware
+const allowedOrigins = [
+  process.env.ADMIN_URL,
+  process.env.CLIENT_URL,
+  "http://localhost:5173",
+  "http://localhost:3000"
+].filter(Boolean);
+
 app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:3000"],
-  credentials: true,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS Policy Error: Origin ${origin} not allowed`));
+    }
+  },
+  credentials: true
 }));
 
 app.use(express.json());
@@ -140,7 +201,7 @@ app.post('/projects', authenticateToken, upload.single('image'), async (req, res
     const { title, description, tech_stack, demo_url, repo_url } = req.body;
     let image_path = null;
     if (req.file) {
-      image_path = `static/images/${req.file.filename}`;
+      image_path = await uploadFileToStorage(req.file);
     }
 
     const newProject = await Project.create({
@@ -175,9 +236,9 @@ app.patch('/projects/:project_id', authenticateToken, upload.single('image'), as
 
     if (req.file) {
       if (project.image) {
-        deleteFile(project.image);
+        await deleteFileFromStorage(project.image);
       }
-      project.image = `static/images/${req.file.filename}`;
+      project.image = await uploadFileToStorage(req.file);
     }
 
     await project.save();
@@ -195,7 +256,7 @@ app.delete('/projects/:project_id', authenticateToken, async (req, res) => {
     }
 
     if (project.image) {
-      deleteFile(project.image);
+      await deleteFileFromStorage(project.image);
     }
 
     await project.destroy();
@@ -225,14 +286,17 @@ app.get('/profile', async (req, res) => {
   }
 });
 
-app.patch('/profile', authenticateToken, upload.single('avatar'), async (req, res) => {
+app.patch('/profile', authenticateToken, upload.fields([
+  { name: 'avatar', maxCount: 1 },
+  { name: 'resume', maxCount: 1 }
+]), async (req, res) => {
   try {
     let profile = await Profile.findOne();
     if (!profile) {
       return res.status(404).json({ detail: "Profile not found" });
     }
 
-    const { full_name, job_title, bio, github_url, linkedin_url } = req.body;
+    const { full_name, job_title, bio, github_url, linkedin_url, delete_resume } = req.body;
 
     if (full_name !== undefined) profile.full_name = full_name;
     if (job_title !== undefined) profile.job_title = job_title || null;
@@ -240,11 +304,26 @@ app.patch('/profile', authenticateToken, upload.single('avatar'), async (req, re
     if (github_url !== undefined) profile.github_url = github_url || null;
     if (linkedin_url !== undefined) profile.linkedin_url = linkedin_url || null;
 
-    if (req.file) {
-      if (profile.avatar) {
-        deleteFile(profile.avatar);
+    if (delete_resume === 'true' || delete_resume === true) {
+      if (profile.resume) {
+        await deleteFileFromStorage(profile.resume);
       }
-      profile.avatar = `static/images/${req.file.filename}`;
+      profile.resume = null;
+    }
+
+    if (req.files) {
+      if (req.files.avatar && req.files.avatar[0]) {
+        if (profile.avatar) {
+          await deleteFileFromStorage(profile.avatar);
+        }
+        profile.avatar = await uploadFileToStorage(req.files.avatar[0]);
+      }
+      if (req.files.resume && req.files.resume[0]) {
+        if (profile.resume) {
+          await deleteFileFromStorage(profile.resume);
+        }
+        profile.resume = await uploadFileToStorage(req.files.resume[0]);
+      }
     }
 
     await profile.save();
@@ -488,6 +567,62 @@ app.delete('/contacts/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// ==================== CRUD SKILLS ====================
+app.get('/skills', async (req, res) => {
+  try {
+    const skills = await Skill.findAll();
+    res.json(skills);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/skills', authenticateToken, upload.none(), async (req, res) => {
+  try {
+    const { name, level, category } = req.body;
+    if (!name || !level || !category) {
+      return res.status(400).json({ detail: "Name, level, and category are required" });
+    }
+    const skill = await Skill.create({ name, level, category });
+    res.status(201).json(skill);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/skills/:id', authenticateToken, upload.none(), async (req, res) => {
+  try {
+    const skill = await Skill.findByPk(req.params.id);
+    if (!skill) {
+      return res.status(404).json({ detail: "Skill not found" });
+    }
+
+    const { name, level, category } = req.body;
+
+    if (name !== undefined) skill.name = name;
+    if (level !== undefined) skill.level = level;
+    if (category !== undefined) skill.category = category;
+
+    await skill.save();
+    res.json(skill);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/skills/:id', authenticateToken, async (req, res) => {
+  try {
+    const skill = await Skill.findByPk(req.params.id);
+    if (!skill) {
+      return res.status(404).json({ detail: "Skill not found" });
+    }
+    await skill.destroy();
+    res.json({ message: "Skill deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== ROOT ENDPOINT ====================
 app.get('/', (req, res) => {
   res.json({
@@ -499,8 +634,20 @@ app.get('/', (req, res) => {
 
 // Synchronize Database and start server
 sequelize.sync()
-  .then(() => {
+  .then(async () => {
     console.log("Database connected and synchronized successfully.");
+
+    // Migration: Add resume column to profile table if not exists
+    try {
+      await sequelize.query("ALTER TABLE profile ADD COLUMN resume TEXT;");
+      console.log("Migration: resume column added to profile table");
+    } catch (err) {
+      // Ignore if column already exists or already handled
+      if (!err.message.includes("duplicate column name") && !err.message.includes("already exists")) {
+        console.log("Migration check completed (column may already exist):", err.message);
+      }
+    }
+
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });

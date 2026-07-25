@@ -1,5 +1,5 @@
 import { Create } from "@refinedev/antd";
-import { Form, Input, Button, message } from "antd";
+import { Form, Input, Button, message, Select } from "antd";
 import axios from "axios";
 import { useNavigation, useApiUrl } from "@refinedev/core";
 
@@ -49,7 +49,12 @@ export const ContactCreate = () => {
       <Form form={form} layout="vertical" onFinish={onFinish}>
 
         <Form.Item label="Platform Name" name="platform" rules={[{ required: true, message: "Nama platform wajib diisi" }]}>
-          <Input placeholder="Contoh: WhatsApp" />
+          <Select placeholder="Pilih Platform">
+            <Select.Option value="Email">Email</Select.Option>
+            <Select.Option value="WhatsApp">WhatsApp</Select.Option>
+            <Select.Option value="LinkedIn">LinkedIn</Select.Option>
+            <Select.Option value="GitHub">GitHub</Select.Option>
+          </Select>
         </Form.Item>
 
         <Form.Item label="Display Text" name="value" rules={[{ required: true, message: "Teks tampilan wajib diisi" }]}>
