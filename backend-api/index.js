@@ -11,7 +11,7 @@ import { Project, Profile, Education, Experience, Certificate, Contact, Skill } 
 
 const app = express();
 const PORT = process.env.PORT || 8000;
-const SECRET_KEY = "rahasia-super-ganteng-banget-jangan-lupa-diganti";
+const SECRET_KEY = process.env.JWT_SECRET || "rahasia-super-ganteng-banget-jangan-lupa-diganti";
 
 const USERS = {
   "admin@admin.com": {
@@ -30,8 +30,10 @@ if (supabase) {
   console.log("Supabase Storage integration active.");
 } else {
   console.log("Supabase Storage credentials missing. Falling back to local file storage.");
-  fs.mkdirSync('static/images', { recursive: true });
-  fs.mkdirSync('static/files', { recursive: true });
+  if (process.env.NODE_ENV !== 'production') {
+    fs.mkdirSync('static/images', { recursive: true });
+    fs.mkdirSync('static/files', { recursive: true });
+  }
 }
 
 // Setup Multer to use memory storage
@@ -96,6 +98,7 @@ async function deleteFileFromStorage(fileUrl) {
   }
 }
 
+// Dynamic CORS Setup
 const allowedOrigins = [
   process.env.ADMIN_URL,
   process.env.CLIENT_URL,
@@ -117,7 +120,29 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files
+// Middleware for Lazy Database Sync in Serverless
+let isDbSynced = false;
+app.use(async (req, res, next) => {
+  if (!isDbSynced) {
+    try {
+      await sequelize.sync();
+      
+      // Auto migration check
+      try {
+        await sequelize.query("ALTER TABLE profile ADD COLUMN resume TEXT;");
+      } catch (err) {
+        // Ignore if column already exists
+      }
+      
+      isDbSynced = true;
+    } catch (error) {
+      console.error("Database connection failure:", error);
+    }
+  }
+  next();
+});
+
+// Serve static files (Local dev only)
 app.use('/static', express.static('static'));
 
 // Authentication Middleware
@@ -143,7 +168,6 @@ function authenticateToken(req, res, next) {
 }
 
 // ==================== AUTH ENDPOINTS ====================
-// Note: OAuth2PasswordRequestForm sends data as x-www-form-urlencoded
 app.post('/token', (req, res) => {
   const { username, password } = req.body;
   
@@ -632,26 +656,15 @@ app.get('/', (req, res) => {
   });
 });
 
-// Synchronize Database and start server
-sequelize.sync()
-  .then(async () => {
-    console.log("Database connected and synchronized successfully.");
-
-    // Migration: Add resume column to profile table if not exists
-    try {
-      await sequelize.query("ALTER TABLE profile ADD COLUMN resume TEXT;");
-      console.log("Migration: resume column added to profile table");
-    } catch (err) {
-      // Ignore if column already exists or already handled
-      if (!err.message.includes("duplicate column name") && !err.message.includes("already exists")) {
-        console.log("Migration check completed (column may already exist):", err.message);
-      }
-    }
-
+// ==================== VERCEL EXPORT & LOCAL LISTEN ====================
+// Only run app.listen when developing locally
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  sequelize.sync().then(() => {
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
-  })
-  .catch(err => {
-    console.error("Unable to connect/sync database:", err);
   });
+}
+
+// Export default app for Vercel Serverless Function
+export default app;
