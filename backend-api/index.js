@@ -108,11 +108,17 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
+    // SOP Industry: Hanya mengizinkan subdomain vercel yang diawali nama project kita sendiri
+    const isVercelPreview = origin && (
+      /^https:\/\/portfolio-adminpg-[a-zA-Z0-9-]+\.vercel\.app$/.test(origin) ||
+      /^https:\/\/portfolio-admin-[a-zA-Z0-9-]+\.vercel\.app$/.test(origin) ||
+      /^https:\/\/porto-page-[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)
+    );
+
     if (
       !origin || 
       allowedOrigins.includes(origin) || 
-      origin.endsWith('.vercel.app') || 
-      /^https:\/\/.*\.vercel\.app$/.test(origin)
+      isVercelPreview
     ) {
       callback(null, true);
     } else {
