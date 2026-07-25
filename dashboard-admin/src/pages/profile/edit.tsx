@@ -15,8 +15,9 @@ import { useApiUrl } from "@refinedev/core";
 import axios from "axios";
 import { useEffect, useState } from "react";
 
+import { API_URL } from "../../config";
+
 const { Title, Text, Paragraph } = Typography;
-const API_URL = "http://localhost:8000";
 
 export const ProfileEdit = () => {
   const apiUrl = useApiUrl();

@@ -49,8 +49,7 @@ import { SkillCreate } from "./pages/skills/create";
 import { SkillEdit } from "./pages/skills/edit";
 import { authProvider } from "./authProvider";
 import { Login } from "./pages/auth/login";
-
-const API_URL = "http://localhost:8000";
+import { API_URL } from "./config";
 
 // --- KONFIGURASI AXIOS GLOBAL ---
 const axiosInstance = axios.create();

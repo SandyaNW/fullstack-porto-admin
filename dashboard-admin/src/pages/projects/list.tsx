@@ -1,8 +1,7 @@
 import { List, useTable, EditButton, DeleteButton } from "@refinedev/antd";
 import { Table, Space, Image } from "antd";
 
-// URL Backend FastAPI
-const API_URL = "http://localhost:8000";
+import { API_URL } from "../../config";
 
 export const ProjectList = () => {
   const { tableProps } = useTable({
