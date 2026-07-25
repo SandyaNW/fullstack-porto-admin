@@ -15,7 +15,7 @@ export const Login = () => {
           alignItems: "center",
         },
       }}
-      renderContent={(content: any, title: any) => {
+      renderContent={(_content: any, _title: any) => {
         const { mutate: login, isPending } = useLogin();
 
         return (
